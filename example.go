@@ -3,7 +3,7 @@ package main
 import (
 	"net/http"
 	"github.com/gin-gonic/gin"
-	//"errors"
+	"errors"
 )
 
 // Creating a library api to store books
@@ -41,6 +41,70 @@ func createBook(c *gin.Context){
 	c.IndentedJSON(http.StatusCreated, newBook)
 }
 
+func getBookById(id string) (*book, error){
+
+	for i, b := range books{
+		if b.ID == id {
+			return &books[i], nil
+		}
+	}
+
+	return nil, errors.New("Book not found")
+}
+
+func bookById(c *gin.Context){
+	id := c.Param("id")
+	book, err := getBookById(id)
+
+	if err != nil {
+		c.IndentedJSON(404, gin.H{"message": "Book not found"})
+		return
+	}
+	c.IndentedJSON(200, book)
+}
+
+func checkoutBook(c *gin.Context){
+	id, ok := c.GetQuery("id")
+
+	if !ok {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message" : "Missing Query Parameter"})
+		return
+	}
+
+	book, err := getBookById(id)
+	if err != nil {
+		c.IndentedJSON(404, gin.H{"message": "Book not found"})
+		return
+	}
+
+	if book.Quantity <= 0 {
+		c.IndentedJSON(404, gin.H{"message": "Book not available"})
+		return
+	}
+
+	book.Quantity -= 1
+	c.IndentedJSON(200, book)
+}
+
+func returnBook(c *gin.Context){
+	id, ok := c.GetQuery("id")
+
+	if !ok {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message" : "Missing Query Parameter"})
+		return
+	}
+
+	book, err := getBookById(id)
+	if err != nil {
+		c.IndentedJSON(404, gin.H{"message": "Book not found"})
+		return
+	}
+
+	book.Quantity += 1
+	c.IndentedJSON(200, book)
+
+}
+
 func main(){
 	// Creating a new router
 	router := gin.Default()
@@ -48,10 +112,12 @@ func main(){
 	// Creating a GET route to return all books
 	router.GET("/books", getBooks)
 	
+	router.GET("/books/:id", bookById)
 	// Creating a POST route to create a book
 	router.POST("/books", createBook)
 
-
+	router.PATCH("/checkout", checkoutBook)
+	router.PATCH("/return", returnBook)
 	// Running the server
 	router.Run("localhost:8080")
 }
